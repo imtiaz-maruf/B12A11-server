@@ -1,9 +1,9 @@
 // ===========================================
 // SERVER/server.js - UPDATED
 // ===========================================
-import dotenv from 'dotenv'; 
+import dotenv from 'dotenv';
 // Call config immediately after importing it
-dotenv.config(); 
+dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
@@ -24,14 +24,25 @@ import statisticsRoutes from './routes/statistics.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ✅ FIXED CORS Configuration
 app.use(cors({
     origin: [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'https://b12a11server.vercel.app',
+        'https://b12a11-imtiaz-local-chef-bazaar.netlify.app', // Your deployed client URL
         process.env.CLIENT_URL,
         process.env.CLIENT_URL_PRODUCTION
-    ],
-    credentials: true
+    ].filter(Boolean), // Remove undefined values
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie']
 }));
+
+// ✅ Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -49,12 +60,16 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// Health check route
+// Health check
 app.get('/', (req, res) => {
-    res.json({ message: 'LocalChefBazaar API is running' });
+    res.json({
+        message: 'LocalChefBazaar API is running',
+        status: 'OK',
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
@@ -64,5 +79,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
