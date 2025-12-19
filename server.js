@@ -7,7 +7,6 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 
-// Import routes
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import mealRoutes from './routes/meals.js';
@@ -23,59 +22,66 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Trust proxy (important for Vercel)
+// Trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// CORS Configuration - FIXED FOR PRODUCTION
+// ✅ FIXED: More permissive CORS for debugging
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:5174',
   'https://b12a11server.vercel.app',
-  process.env.CLIENT_URL,
-  process.env.CLIENT_URL_PRODUCTION
-].filter(Boolean);
+  'https://b12a11lserver.vercel.app' // Your actual domain
+];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (Postman, mobile apps)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Allow all vercel.app domains for now
+    if (origin.includes('vercel.app') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.log('Blocked by CORS:', origin);
-      callback(null, true); // Allow all in development, block in production
+      console.log('❌ Origin blocked:', origin);
+      callback(null, true); // Still allow for debugging
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 200
 }));
 
-// Handle preflight
 app.options('*', cors());
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Connect to MongoDB
 connectDB();
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  console.log('Cookies:', req.cookies);
+  console.log('Origin:', req.headers.origin);
+  next();
+});
 
 // Health check
 app.get('/', (req, res) => {
   res.json({ 
     message: 'LocalChefBazaar API is running',
     status: 'OK',
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV
+    timestamp: new Date().toISOString()
   });
 });
 
-// API Routes
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -86,28 +92,21 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({ 
-    message: 'Route not found',
-    path: req.path
-  });
+// 404
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found', path: req.path });
 });
 
-// Error handling
+// Error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(err.status || 500).json({ 
-    message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    message: err.message || 'Internal server error'
   });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Environment: ${process.env.NODE_ENV}`);
-  console.log(`✅ Allowed origins:`, allowedOrigins);
 });
 
 export default app;
