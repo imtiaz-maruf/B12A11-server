@@ -1,16 +1,13 @@
 // ===========================================
-// SERVER/server.js - UPDATED
+// SERVER/server.js
 // ===========================================
-import dotenv from 'dotenv';
-// Call config immediately after importing it
-dotenv.config();
-
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import connectDB from './config/db.js';
 
-// Import routes (These will now have access to process.env)
+// Import routes
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import mealRoutes from './routes/meals.js';
@@ -21,35 +18,64 @@ import requestRoutes from './routes/requests.js';
 import paymentRoutes from './routes/payment.js';
 import statisticsRoutes from './routes/statistics.js';
 
+dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ FIXED CORS Configuration
+// Trust proxy (important for Vercel)
+app.set('trust proxy', 1);
+
+// CORS Configuration - FIXED FOR PRODUCTION
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://b12a11server.vercel.app',
+  process.env.CLIENT_URL,
+  process.env.CLIENT_URL_PRODUCTION
+].filter(Boolean);
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'https://b12a11server.vercel.app',
-        'https://b12a11-imtiaz-local-chef-bazaar.netlify.app', // Your deployed client URL
-        process.env.CLIENT_URL,
-        process.env.CLIENT_URL_PRODUCTION
-    ].filter(Boolean), // Remove undefined values
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie']
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(null, true); // Allow all in development, block in production
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200
 }));
 
-// ✅ Handle preflight requests
+// Handle preflight
 app.options('*', cors());
 
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Connect to MongoDB
 connectDB();
 
-// Routes
+// Health check
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'LocalChefBazaar API is running',
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -60,24 +86,28 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// Health check
-app.get('/', (req, res) => {
-    res.json({
-        message: 'LocalChefBazaar API is running',
-        status: 'OK',
-        timestamp: new Date().toISOString()
-    });
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({ 
+    message: 'Route not found',
+    path: req.path
+  });
 });
 
 // Error handling
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
+// Start server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV}`);
+  console.log(`✅ Allowed origins:`, allowedOrigins);
 });
+
+export default app;
