@@ -6,89 +6,55 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// Generate JWT token
+// Generate JWT
 router.post('/jwt', async (req, res) => {
   try {
     const { email } = req.body;
     
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ success: false, message: 'Email required' });
     }
 
-    const token = jwt.sign(
-      { email }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
-    // Cookie options for production
+    // ✅ FIXED: Cookie settings for production
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/'
+      secure: true, // Always true for production
+      sameSite: 'none', // Required for cross-site
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? '.vercel.app' : undefined
     };
+
+    console.log('✅ Setting cookie with options:', cookieOptions);
+    console.log('✅ Token generated for:', email);
 
     res
       .cookie('token', token, cookieOptions)
-      .status(200)
       .json({ 
         success: true, 
-        message: 'Token generated successfully'
+        message: 'Token generated successfully',
+        email 
       });
       
   } catch (error) {
     console.error('JWT Error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to generate token',
-      error: error.message 
-    });
-  }
-});
-
-// Verify token (for debugging)
-router.get('/verify', (req, res) => {
-  const token = req.cookies.token;
-  
-  if (!token) {
-    return res.status(401).json({ 
-      authenticated: false,
-      message: 'No token found' 
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ 
-      authenticated: true, 
-      user: decoded 
-    });
-  } catch (error) {
-    res.status(401).json({ 
-      authenticated: false,
-      message: 'Invalid token' 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // Logout
 router.post('/logout', (req, res) => {
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    path: '/'
-  };
-
   res
-    .clearCookie('token', cookieOptions)
-    .status(200)
-    .json({ 
-      success: true, 
-      message: 'Logged out successfully' 
-    });
+    .clearCookie('token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      domain: '.vercel.app'
+    })
+    .json({ success: true, message: 'Logged out' });
 });
 
 export default router;
