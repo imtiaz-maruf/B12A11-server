@@ -1,5 +1,5 @@
 // ============================================================================
-// SERVER/server.js - UPDATED VERSION WITH IMPROVED CORS
+// 1. SERVER/server.js - CORRECTED VERSION
 // ============================================================================
 import express from 'express';
 import cors from 'cors';
@@ -22,49 +22,38 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CRITICAL: Trust proxy for Vercel deployment
+// Trust proxy (essential for Vercel)
 app.set('trust proxy', 1);
 
-// ============================================================================
-// UPDATED CORS CONFIGURATION
-// ============================================================================
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://b12-a11-client.vercel.app'
-    ];
+// ✅ FIXED: Strict CORS configuration for production
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://b12-a11-client.vercel.app',
+  process.env.CLIENT_URL
+].filter(Boolean);
 
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) {
-      console.log('✅ No origin - allowing request');
-      return callback(null, true);
-    }
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ Origin allowed:', origin);
-      return callback(null, true);
+      callback(null, true);
+    } else {
+      console.log('❌ Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
-
-    console.log('❌ Origin rejected:', origin);
-    return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true, // CRITICAL - must be true for cookies
+  credentials: true, // CRITICAL: Must be true
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Set-Cookie'], // Allow browser to see Set-Cookie header
+  exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
+}));
 
 // Handle preflight requests
-app.options('*', cors(corsOptions));
-
-// ============================================================================
-// MIDDLEWARE
-// ============================================================================
+app.options('*', cors());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -83,10 +72,6 @@ app.use((req, res, next) => {
   console.log('Cookies:', req.cookies);
   next();
 });
-
-// ============================================================================
-// ROUTES
-// ============================================================================
 
 // Health check
 app.get('/', (req, res) => {
@@ -109,10 +94,6 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// ============================================================================
-// ERROR HANDLERS
-// ============================================================================
-
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -132,14 +113,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ============================================================================
-// START SERVER
-// ============================================================================
-
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Environment: ${process.env.NODE_ENV}`);
-  console.log(`✅ CORS enabled for production...`);
+  console.log(`✅ Allowed origins:`, allowedOrigins);
 });
 
 export default app;
