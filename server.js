@@ -1,6 +1,6 @@
-// ============================================================================
-// 1. SERVER/server.js - CORRECTED VERSION
-// ============================================================================
+// ===========================================
+// SERVER/server.js
+// ===========================================
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -22,68 +22,66 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Trust proxy (essential for Vercel)
+// Trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// ✅ FIXED: Strict CORS configuration for production
+// ✅ FIXED: More permissive CORS for debugging
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:5174',
-  'https://b12-a11-client.vercel.app',
-  process.env.CLIENT_URL
-].filter(Boolean);
+  'https://b12a11server.vercel.app',
+  'https://b12a11lserver.vercel.app' // Your actual domain
+];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl)
+    // Allow requests with no origin (Postman, mobile apps)
     if (!origin) return callback(null, true);
-
+    
+    // Allow all vercel.app domains for now
+    if (origin.includes('vercel.app') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.log('❌ Blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.log('❌ Origin blocked:', origin);
+      callback(null, true); // Still allow for debugging
     }
   },
-  credentials: true, // CRITICAL: Must be true
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests
 app.options('*', cors());
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Cookie parser (must come before routes)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Connect to MongoDB
 connectDB();
 
-// Request logging middleware
+// Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  console.log('Origin:', req.headers.origin);
+  console.log(`${req.method} ${req.path}`);
   console.log('Cookies:', req.cookies);
+  console.log('Origin:', req.headers.origin);
   next();
 });
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({
+  res.json({ 
     message: 'LocalChefBazaar API is running',
     status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    timestamp: new Date().toISOString()
   });
 });
 
-// API Routes
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -94,29 +92,21 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// 404 handler
+// 404
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    path: req.path
-  });
+  res.status(404).json({ message: 'Route not found', path: req.path });
 });
 
-// Global error handler
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Internal server error'
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Environment: ${process.env.NODE_ENV}`);
-  console.log(`✅ Allowed origins:`, allowedOrigins);
+  console.log(`✅ Server running on port.... ${PORT}`);
 });
 
 export default app;
