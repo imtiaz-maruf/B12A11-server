@@ -19,56 +19,34 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ CRITICAL: CORS Configuration for Vercel
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'https://b12-a11-client.vercel.app',
-  'https://b12a11client.vercel.app'
-];
-
+// ✅ Simple CORS - Allow all origins (since we're using Authorization headers)
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('❌ Blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: true,
+  credentials: true
 }));
 
-// ✅ Middleware
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ Logging Middleware
+// ✅ Logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
-  console.log('Cookies:', req.cookies);
-  console.log('Origin:', req.headers.origin);
+  console.log('Auth Header:', req.headers.authorization ? 'Present' : 'Missing');
   next();
 });
 
-// ✅ Connect to MongoDB
+// ✅ Connect DB
 connectDB();
 
 // ✅ Health Check
 app.get('/', (req, res) => {
   res.json({
     message: 'LocalChefBazaar API Running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    timestamp: new Date().toISOString()
   });
 });
 
-// ✅ API Routes
+// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -79,18 +57,14 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// ✅ Error Handler
 app.use(errorHandler);
 
-// ✅ 404 Handler
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// ✅ Start Server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 export default app;

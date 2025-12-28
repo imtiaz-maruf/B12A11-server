@@ -1,15 +1,15 @@
-// ===========================================
-// SERVER/middleware/verifyToken.js
-// ===========================================
-
 import jwt from 'jsonwebtoken';
 
 export const verifyToken = (req, res, next) => {
   try {
-    const token = req.cookies?.token;
+    // ✅ Check Authorization header first, then cookies
+    let token = req.headers.authorization?.split(' ')[1]; // "Bearer TOKEN"
+
+    if (!token) {
+      token = req.cookies?.token; // Fallback to cookies
+    }
 
     console.log('🔍 Verifying token...');
-    console.log('📦 Cookies received:', Object.keys(req.cookies || {}));
     console.log('🔑 Token:', token ? 'Present' : 'Missing');
 
     if (!token) {
