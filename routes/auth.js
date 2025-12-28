@@ -1,79 +1,85 @@
-// ===========================================
-// SERVER/routes/auth.js - HYBRID APPROACH
-// ===========================================
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// Generate JWT
+// ✅ Generate JWT
 router.post('/jwt', async (req, res) => {
   try {
     const { email } = req.body;
 
-    console.log('📧 JWT request for:', email);
-
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email required'
-      });
+      return res.status(400).json({ success: false, message: 'Email required' });
     }
 
-    const token = jwt.sign(
-      { email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // ✅ Cookie settings - try without domain first
+    // ✅ FIXED: Production-ready cookie settings
+    const isProduction = process.env.NODE_ENV === 'production';
+
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: true, // Always true (works on both HTTP and HTTPS in Vercel)
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/'
-      // ❌ Remove domain - let browser set it automatically
     };
 
-    console.log('🍪 Setting cookie with options:', cookieOptions);
-    console.log('🎟️ Token (first 20 chars):', token.substring(0, 20) + '...');
+    console.log('✅ Setting cookie with options:', cookieOptions);
+    console.log('✅ Token generated for:', email);
 
-    // ✅ HYBRID: Set cookie AND return token in response
     res
       .cookie('token', token, cookieOptions)
       .json({
         success: true,
         message: 'Token generated successfully',
         email,
-        authenticated: true,
-        token // ✅ Return token so client can store it
+        tokenSet: true
       });
 
   } catch (error) {
     console.error('❌ JWT Error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Logout
+// ✅ Logout
 router.post('/logout', (req, res) => {
-  console.log('👋 Logout request');
+  const isProduction = process.env.NODE_ENV === 'production';
 
   res
     .clearCookie('token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: true,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/'
     })
-    .json({
-      success: true,
-      message: 'Logged out successfully'
+    .json({ success: true, message: 'Logged out successfully' });
+});
+
+// ✅ Verify Token (for debugging)
+router.get('/verify', (req, res) => {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({
+      authenticated: false,
+      message: 'No token found'
     });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({
+      authenticated: true,
+      email: decoded.email
+    });
+  } catch (error) {
+    res.status(403).json({
+      authenticated: false,
+      message: 'Invalid token'
+    });
+  }
 });
 
 export default router;
