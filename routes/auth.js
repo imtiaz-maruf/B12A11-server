@@ -1,5 +1,5 @@
 // ===========================================
-// SERVER/routes/auth.js - COMPLETE REWRITE
+// SERVER/routes/auth.js - HYBRID APPROACH
 // ===========================================
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -26,30 +26,28 @@ router.post('/jwt', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // ✅ CRITICAL: Production-ready cookie settings
+    // ✅ Cookie settings - try without domain first
     const cookieOptions = {
       httpOnly: true,
-      secure: true, // Always true in production
-      sameSite: 'none', // Required for cross-site cookies
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/',
-      domain: process.env.NODE_ENV === 'production'
-        ? '.vercel.app'
-        : undefined
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
+      // ❌ Remove domain - let browser set it automatically
     };
 
-    console.log('🍪 Setting cookie with options:', {
-      ...cookieOptions,
-      domain: cookieOptions.domain || 'localhost'
-    });
+    console.log('🍪 Setting cookie with options:', cookieOptions);
+    console.log('🎟️ Token (first 20 chars):', token.substring(0, 20) + '...');
 
+    // ✅ HYBRID: Set cookie AND return token in response
     res
       .cookie('token', token, cookieOptions)
       .json({
         success: true,
         message: 'Token generated successfully',
         email,
-        authenticated: true
+        authenticated: true,
+        token // ✅ Return token so client can store it
       });
 
   } catch (error) {
@@ -65,47 +63,17 @@ router.post('/jwt', async (req, res) => {
 router.post('/logout', (req, res) => {
   console.log('👋 Logout request');
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    path: '/',
-    domain: process.env.NODE_ENV === 'production'
-      ? '.vercel.app'
-      : undefined
-  };
-
   res
-    .clearCookie('token', cookieOptions)
+    .clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/'
+    })
     .json({
       success: true,
       message: 'Logged out successfully'
     });
-});
-
-// Verify token endpoint (for debugging)
-router.get('/verify', (req, res) => {
-  const token = req.cookies?.token;
-
-  if (!token) {
-    return res.json({
-      authenticated: false,
-      message: 'No token found'
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({
-      authenticated: true,
-      email: decoded.email
-    });
-  } catch (error) {
-    res.json({
-      authenticated: false,
-      message: 'Invalid token'
-    });
-  }
 });
 
 export default router;
