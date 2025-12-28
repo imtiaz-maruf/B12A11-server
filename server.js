@@ -19,26 +19,39 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Simple CORS - Allow all origins (since we're using Authorization headers)
+// ✅ CRITICAL: CORS must come FIRST
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://b12-a11-client.vercel.app',
+    'https://b12a11client.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// ✅ Handle OPTIONS preflight
+app.options('*', cors());
 
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ Logging
+// ✅ CRITICAL: Log ALL headers
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  console.log('Auth Header:', req.headers.authorization ? 'Present' : 'Missing');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📨 ${req.method} ${req.path}`);
+  console.log('🌐 Origin:', req.headers.origin);
+  console.log('🔑 Authorization:', req.headers.authorization || 'MISSING');
+  console.log('📦 All Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   next();
 });
 
-// ✅ Connect DB
 connectDB();
 
-// ✅ Health Check
 app.get('/', (req, res) => {
   res.json({
     message: 'LocalChefBazaar API Running',
@@ -46,7 +59,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -65,6 +77,7 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 export default app;
