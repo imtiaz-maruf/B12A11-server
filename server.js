@@ -1,12 +1,14 @@
 // ===========================================
-// SERVER/server.js
+// SERVER/index.js - COMPLETE REWRITE
 // ===========================================
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 import connectDB from './config/db.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
+// Routes
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import mealRoutes from './routes/meals.js';
@@ -22,66 +24,57 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Trust proxy for Vercel
+// ✅ CRITICAL: Trust proxy for Vercel
 app.set('trust proxy', 1);
 
-// ✅ FIXED: More permissive CORS for debugging
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://b12a11server.vercel.app',
-  'https://b12a11lserver.vercel.app' // Your actual domain
-];
-
-app.use(cors({
+// ✅ CRITICAL: CORS Configuration for Production
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (Postman, mobile apps)
-    if (!origin) return callback(null, true);
-    
-    // Allow all vercel.app domains for now
-    if (origin.includes('vercel.app') || origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
+    const allowedOrigins = [
+      'https://b12-a11-client.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:5174'
+    ];
+
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('❌ Origin blocked:', origin);
-      callback(null, true); // Still allow for debugging
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
+  credentials: true, // ✅ CRITICAL: Allow cookies
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 200
-}));
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie'],
+  maxAge: 86400 // 24 hours
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
 
+// ✅ Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Cookie parser
 app.use(cookieParser());
 
+// Connect to MongoDB
 connectDB();
-
-// Logging middleware
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  console.log('Cookies:', req.cookies);
-  console.log('Origin:', req.headers.origin);
-  next();
-});
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'LocalChefBazaar API is running',
-    status: 'OK',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
   });
 });
 
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
@@ -92,21 +85,14 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
-// 404
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found', path: req.path });
-});
-
 // Error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({ 
-    message: err.message || 'Internal server error'
-  });
-});
+app.use(errorHandler);
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port.... ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV}`);
+  console.log(`✅ CORS enabled for: https://b12-a11-client.vercel.app`);
 });
 
 export default app;
