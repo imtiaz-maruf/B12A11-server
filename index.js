@@ -1,87 +1,86 @@
 // ========================================================
-// server/index.js - COMPLETE VERCEL-READY VERSION
+// server/server.js - COMPLETE VERCEL-READY VERSION
 // ========================================================
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import mealRoutes from './routes/meals.js';
+import orderRoutes from './routes/orders.js';
+import reviewRoutes from './routes/reviews.js';
+import favoriteRoutes from './routes/favorites.js';
+import requestRoutes from './routes/requests.js';
+import paymentRoutes from './routes/payment.js';
+import statisticsRoutes from './routes/statistics.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
-// Load environment variables
 dotenv.config();
 
-// Initialize Express app
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
-const corsOptions = {
+// ✅ CRITICAL: CORS must come FIRST
+app.use(cors({
   origin: [
-    'https://b12-a11-client.vercel.app',
     'http://localhost:5173',
-    'http://localhost:3000'
+    'http://localhost:5174',
+    'https://b12-a11-client.vercel.app',
+    'https://b12a11client.vercel.app'
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Middleware
-app.use(cors(corsOptions));
+// ✅ Handle OPTIONS preflight
+app.options('*', cors());
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Request logging
+// ✅ CRITICAL: Log ALL headers
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    query: req.query
-  });
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📨 ${req.method} ${req.path}`);
+  console.log('🌐 Origin:', req.headers.origin);
+  console.log('🔑 Authorization:', req.headers.authorization || 'MISSING');
+  console.log('📦 All Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   next();
 });
 
-// Health check
+connectDB();
+
 app.get('/', (req, res) => {
   res.json({
-    status: 'Server is running',
-    timestamp: new Date().toISOString(),
-    env: {
-      nodeEnv: process.env.NODE_ENV,
-      jwtConfigured: !!process.env.JWT_SECRET
-    }
+    message: 'LocalChefBazaar API Running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/requests', requestRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/statistics', statisticsRoutes);
 
-// 404 Handler
-app.use((req, res) => {
-  console.log('404 - Route not found:', req.path);
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.path,
-    method: req.method
-  });
+app.use(errorHandler);
+
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'Route not found' });
 });
 
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// For Vercel serverless
 export default app;
-
-// For local development
-const PORT = process.env.PORT || 3001;
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 Health check: http://localhost:${PORT}/`);
-    console.log(`🔐 JWT configured: ${!!process.env.JWT_SECRET}`);
-  });
-}
