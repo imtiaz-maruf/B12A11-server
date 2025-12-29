@@ -2,7 +2,7 @@
   "name": "localchefbazaar-server",
   "version": "1.0.0",
   "description": "Backend for LocalChefBazaar - Home-cooked meal marketplace",
-  "main": "server/index.js",
+  "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
