@@ -1,85 +1,64 @@
-// ===========================================
-// SERVER/routes/auth.js - COPY THIS EXACTLY
-// ===========================================
+// ========================================================
+// server/routes/auth.js - COMPLETE FILE - COPY EVERYTHING
+// ========================================================
 
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// ✅ JWT Token Generation Route
+/**
+ * POST /api/auth/jwt
+ * Generate JWT token for authenticated user
+ * Body: { email: string }
+ * Returns: { success: boolean, token: string, email: string }
+ */
 router.post('/jwt', async (req, res) => {
   try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📨 POST /api/auth/jwt');
-    console.log('📦 Body:', req.body);
+    console.log('📨 JWT Request:', req.body);
 
     const { email } = req.body;
 
-    // Validation
+    // Validate email
     if (!email) {
-      console.log('❌ No email provided');
       return res.status(400).json({
         success: false,
         message: 'Email is required'
       });
     }
 
-    // Check JWT_SECRET
+    // Check JWT_SECRET exists
     if (!process.env.JWT_SECRET) {
-      console.error('❌ CRITICAL: JWT_SECRET not configured!');
+      console.error('❌ JWT_SECRET not configured');
       return res.status(500).json({
         success: false,
-        message: 'Server configuration error - JWT_SECRET missing'
+        message: 'Server configuration error'
       });
     }
 
-    console.log('🔐 Generating JWT token for:', email);
-
-    // Generate token
+    // Generate JWT token
     const token = jwt.sign(
       { email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    console.log('✅ Token generated');
-    console.log('🔑 Token length:', token.length);
-    console.log('🔑 Preview:', token.substring(0, 30) + '...');
+    console.log('✅ Token generated for:', email);
 
-    // CRITICAL: Build response object with token
-    const responseData = {
+    // CRITICAL: Response MUST include token field
+    const response = {
       success: true,
-      token: token,     // ← MUST BE HERE!
+      token: token,        // ← This is the critical field!
       email: email
     };
 
-    // Verify token is in response
-    console.log('🔍 Verifying response structure:');
-    console.log('   - success:', responseData.success);
-    console.log('   - token exists:', !!responseData.token);
-    console.log('   - token length:', responseData.token?.length);
-    console.log('   - email:', responseData.email);
+    console.log('📤 Sending response with token');
 
-    if (!responseData.token) {
-      console.error('❌ CRITICAL ERROR: Token missing from response!');
-      throw new Error('Token not in response object');
-    }
-
-    console.log('✅ Response ready to send');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    // Send response
-    return res.status(200).json(responseData);
+    // Return response
+    return res.status(200).json(response);
 
   } catch (error) {
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('❌ JWT Generation Error');
-    console.error('Name:', error.name);
-    console.error('Message:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
+    console.error('❌ JWT Error:', error.message);
     return res.status(500).json({
       success: false,
       message: 'Token generation failed',
@@ -88,16 +67,24 @@ router.post('/jwt', async (req, res) => {
   }
 });
 
-// ✅ Logout Route
+/**
+ * POST /api/auth/logout
+ * Logout user (client-side will remove token)
+ * Returns: { success: boolean, message: string }
+ */
 router.post('/logout', (req, res) => {
-  console.log('🚪 POST /api/auth/logout');
+  console.log('🚪 Logout request');
   res.json({
     success: true,
     message: 'Logged out successfully'
   });
 });
 
-// ✅ Test Route (for debugging)
+/**
+ * GET /api/auth/test
+ * Test endpoint to verify auth routes are working
+ * Returns: { message: string, jwtConfigured: boolean, timestamp: string }
+ */
 router.get('/test', (req, res) => {
   res.json({
     message: 'Auth routes working',
@@ -107,3 +94,4 @@ router.get('/test', (req, res) => {
 });
 
 export default router;
+
