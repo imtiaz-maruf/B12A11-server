@@ -6,18 +6,11 @@ import jwt from 'jsonwebtoken';
 
 export const verifyToken = (req, res, next) => {
   try {
-    // ✅ Check Authorization header first, then cookies
-    let token = req.headers.authorization?.split(' ')[1]; // "Bearer TOKEN"
+    // Check for token in cookies first, then fallback to Authorization header
+    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
 
     if (!token) {
-      token = req.cookies?.token; // Fallback to cookies
-    }
-
-    console.log('🔍 Verifying token...');
-    console.log('🔑 Token:', token ? 'Present' : 'Missing');
-
-    if (!token) {
-      console.log('❌ No token provided');
+      console.log('❌ Auth Failed: No token found');
       return res.status(401).json({
         message: 'Access denied. No token provided.',
         authenticated: false
@@ -25,23 +18,13 @@ export const verifyToken = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token verified for:', decoded.email);
-
     req.user = decoded;
     next();
-
   } catch (error) {
     console.error('❌ Token verification failed:', error.message);
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        message: 'Token expired. Please login again.',
-        authenticated: false
-      });
-    }
-
-    return res.status(403).json({
-      message: 'Invalid token',
+    const status = error.name === 'TokenExpiredError' ? 401 : 403;
+    return res.status(status).json({
+      message: error.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token',
       authenticated: false
     });
   }
