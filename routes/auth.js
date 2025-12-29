@@ -1,22 +1,26 @@
 // ========================================================
-// server/routes/auth.js - ENHANCED DEBUG VERSION
+// server/routes/auth.js - COMPLETE FILE - COPY EVERYTHING
 // ========================================================
+
 import express from 'express';
 import jwt from 'jsonwebtoken';
+
 const router = express.Router();
 
 /**
  * POST /api/auth/jwt
  * Generate JWT token for authenticated user
+ * Body: { email: string }
+ * Returns: { success: boolean, token: string, email: string }
  */
 router.post('/jwt', async (req, res) => {
   try {
-    console.log('📨 JWT Request Body:', JSON.stringify(req.body));
+    console.log('📨 JWT Request:', req.body);
+
     const { email } = req.body;
 
     // Validate email
     if (!email) {
-      console.log('❌ No email provided');
       return res.status(400).json({
         success: false,
         message: 'Email is required'
@@ -25,14 +29,12 @@ router.post('/jwt', async (req, res) => {
 
     // Check JWT_SECRET exists
     if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET not configured in environment');
+      console.error('❌ JWT_SECRET not configured');
       return res.status(500).json({
         success: false,
-        message: 'Server configuration error - JWT_SECRET missing'
+        message: 'Server configuration error'
       });
     }
-
-    console.log('🔐 JWT_SECRET exists:', process.env.JWT_SECRET.substring(0, 10) + '...');
 
     // Generate JWT token
     const token = jwt.sign(
@@ -41,31 +43,22 @@ router.post('/jwt', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ Token generated successfully');
-    console.log('📏 Token length:', token.length);
-    console.log('🔍 Token preview:', token.substring(0, 50) + '...');
+    console.log('✅ Token generated for:', email);
 
-    // CRITICAL: Build response object
+    // CRITICAL: Response MUST include token field
     const response = {
       success: true,
-      token: token,
+      token: token,        // ← This is the critical field!
       email: email
     };
 
-    console.log('📦 Response object keys:', Object.keys(response));
-    console.log('📦 Response has token?', 'token' in response);
-    console.log('📦 Token value exists?', !!response.token);
-    console.log('📤 Sending response:', JSON.stringify({
-      ...response,
-      token: response.token.substring(0, 50) + '...'
-    }));
+    console.log('📤 Sending response with token');
 
-    // Send response
+    // Return response
     return res.status(200).json(response);
 
   } catch (error) {
-    console.error('❌ JWT Generation Error:', error);
-    console.error('Stack:', error.stack);
+    console.error('❌ JWT Error:', error.message);
     return res.status(500).json({
       success: false,
       message: 'Token generation failed',
@@ -76,6 +69,8 @@ router.post('/jwt', async (req, res) => {
 
 /**
  * POST /api/auth/logout
+ * Logout user (client-side will remove token)
+ * Returns: { success: boolean, message: string }
  */
 router.post('/logout', (req, res) => {
   console.log('🚪 Logout request');
@@ -87,12 +82,13 @@ router.post('/logout', (req, res) => {
 
 /**
  * GET /api/auth/test
+ * Test endpoint to verify auth routes are working
+ * Returns: { message: string, jwtConfigured: boolean, timestamp: string }
  */
 router.get('/test', (req, res) => {
   res.json({
     message: 'Auth routes working',
     jwtConfigured: !!process.env.JWT_SECRET,
-    jwtSecretLength: process.env.JWT_SECRET?.length || 0,
     timestamp: new Date().toISOString()
   });
 });
