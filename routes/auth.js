@@ -1,5 +1,5 @@
 // ===========================================
-// SERVER/routes/auth.js - FIXED WITH DEBUGGING
+// SERVER/routes/auth.js - COPY THIS EXACTLY
 // ===========================================
 
 import express from 'express';
@@ -7,33 +7,34 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// ✅ Generate JWT and return it
+// ✅ JWT Token Generation Route
 router.post('/jwt', async (req, res) => {
   try {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📨 POST /api/auth/jwt - Request received');
-    console.log('📦 Request body:', req.body);
+    console.log('📨 POST /api/auth/jwt');
+    console.log('📦 Body:', req.body);
 
     const { email } = req.body;
 
+    // Validation
     if (!email) {
       console.log('❌ No email provided');
       return res.status(400).json({
         success: false,
-        message: 'Email required'
+        message: 'Email is required'
       });
     }
 
-    // Check if JWT_SECRET exists
+    // Check JWT_SECRET
     if (!process.env.JWT_SECRET) {
-      console.error('❌ CRITICAL: JWT_SECRET is not defined in environment variables!');
+      console.error('❌ CRITICAL: JWT_SECRET not configured!');
       return res.status(500).json({
         success: false,
-        message: 'Server configuration error'
+        message: 'Server configuration error - JWT_SECRET missing'
       });
     }
 
-    console.log('🔐 JWT_SECRET exists:', process.env.JWT_SECRET.substring(0, 10) + '...');
+    console.log('🔐 Generating JWT token for:', email);
 
     // Generate token
     const token = jwt.sign(
@@ -42,32 +43,41 @@ router.post('/jwt', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ Token generated successfully');
-    console.log('🔑 Token (first 30 chars):', token.substring(0, 30) + '...');
+    console.log('✅ Token generated');
+    console.log('🔑 Token length:', token.length);
+    console.log('🔑 Preview:', token.substring(0, 30) + '...');
 
-    // Prepare response
-    const response = {
+    // CRITICAL: Build response object with token
+    const responseData = {
       success: true,
-      token: token,
+      token: token,     // ← MUST BE HERE!
       email: email
     };
 
-    console.log('📤 Sending response:', {
-      success: response.success,
-      email: response.email,
-      tokenLength: response.token.length
-    });
+    // Verify token is in response
+    console.log('🔍 Verifying response structure:');
+    console.log('   - success:', responseData.success);
+    console.log('   - token exists:', !!responseData.token);
+    console.log('   - token length:', responseData.token?.length);
+    console.log('   - email:', responseData.email);
+
+    if (!responseData.token) {
+      console.error('❌ CRITICAL ERROR: Token missing from response!');
+      throw new Error('Token not in response object');
+    }
+
+    console.log('✅ Response ready to send');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Send response
-    return res.status(200).json(response);
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('❌ JWT Generation Error:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('❌ JWT Generation Error');
+    console.error('Name:', error.name);
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return res.status(500).json({
@@ -78,22 +88,21 @@ router.post('/jwt', async (req, res) => {
   }
 });
 
-// ✅ Logout endpoint
+// ✅ Logout Route
 router.post('/logout', (req, res) => {
-  console.log('🚪 Logout request received');
+  console.log('🚪 POST /api/auth/logout');
   res.json({
     success: true,
     message: 'Logged out successfully'
   });
 });
 
-// Test endpoint to verify JWT_SECRET
-router.get('/test-jwt-secret', (req, res) => {
-  const hasSecret = !!process.env.JWT_SECRET;
+// ✅ Test Route (for debugging)
+router.get('/test', (req, res) => {
   res.json({
-    hasJwtSecret: hasSecret,
-    secretLength: process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0,
-    nodeEnv: process.env.NODE_ENV || 'not set'
+    message: 'Auth routes working',
+    jwtConfigured: !!process.env.JWT_SECRET,
+    timestamp: new Date().toISOString()
   });
 });
 
