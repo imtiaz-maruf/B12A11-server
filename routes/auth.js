@@ -7,90 +7,35 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-/**
- * POST /api/auth/jwt
- * Generate JWT token for authenticated user
- * Body: { email: string }
- * Returns: { success: boolean, token: string, email: string }
- */
+// ✅ Generate JWT and return it (don't use cookies)
 router.post('/jwt', async (req, res) => {
   try {
-    console.log('📨 JWT Request:', req.body);
-
     const { email } = req.body;
 
-    // Validate email
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required'
-      });
+      return res.status(400).json({ success: false, message: 'Email required' });
     }
 
-    // Check JWT_SECRET exists
-    if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET not configured');
-      return res.status(500).json({
-        success: false,
-        message: 'Server configuration error'
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     console.log('✅ Token generated for:', email);
 
-    // CRITICAL: Response MUST include token field
-    const response = {
+    // ✅ Return token in response body (client will store it)
+    res.json({
       success: true,
-      token: token,        // ← This is the critical field!
-      email: email
-    };
-
-    console.log('📤 Sending response with token');
-
-    // Return response
-    return res.status(200).json(response);
+      token,
+      email
+    });
 
   } catch (error) {
-    console.error('❌ JWT Error:', error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Token generation failed',
-      error: error.message
-    });
+    console.error('❌ JWT Error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-/**
- * POST /api/auth/logout
- * Logout user (client-side will remove token)
- * Returns: { success: boolean, message: string }
- */
+// ✅ Logout (client-side will remove token)
 router.post('/logout', (req, res) => {
-  console.log('🚪 Logout request');
-  res.json({
-    success: true,
-    message: 'Logged out successfully'
-  });
-});
-
-/**
- * GET /api/auth/test
- * Test endpoint to verify auth routes are working
- * Returns: { message: string, jwtConfigured: boolean, timestamp: string }
- */
-router.get('/test', (req, res) => {
-  res.json({
-    message: 'Auth routes working',
-    jwtConfigured: !!process.env.JWT_SECRET,
-    timestamp: new Date().toISOString()
-  });
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 export default router;
