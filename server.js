@@ -1,5 +1,5 @@
 // ===========================================
-// SERVER/server.js - FIXED VERSION
+// SERVER/index.js - FIXED VERSION
 // ===========================================
 
 // ✅ CRITICAL: dotenv MUST be first
